@@ -1,5 +1,4 @@
 import Foundation
-import CairoGraphics
 
 /// Color channels, assuming RGB colors.
 fileprivate let CHANNELS = 3
@@ -7,11 +6,11 @@ fileprivate let CHANNELS = 3
 /// A quantization where all colors are evenly
 /// spaced along each channel.
 public struct UniformQuantization: ColorQuantization {
-    public private(set) var colorTable: [Color]
+    public private(set) var colorTable: [GIFColor]
     private let colorsPerChannel: Int
     private let colorStride: Int
 
-    public init(fromImage image: CairoImage, colorCount: Int = GIFConstants.nonTransparentColorCount) {
+    public init(fromImage image: GIFImage, colorCount: Int = GIFConstants.nonTransparentColorCount) {
         colorTable = []
         colorsPerChannel = Int(pow(Double(colorCount), 1.0 / Double(CHANNELS)))
         colorStride = 256 / colorsPerChannel
@@ -19,7 +18,7 @@ public struct UniformQuantization: ColorQuantization {
         for r in 0..<colorsPerChannel {
             for g in 0..<colorsPerChannel {
                 for b in 0..<colorsPerChannel {
-                    colorTable.append(Color(
+                    colorTable.append(GIFColor(
                         red: UInt8(r * colorStride),
                         green: UInt8(g * colorStride),
                         blue: UInt8(b * colorStride)
@@ -33,7 +32,7 @@ public struct UniformQuantization: ColorQuantization {
         return (colorsPerChannel * colorsPerChannel * r) + (colorsPerChannel * g) + b
     }
 
-    public func quantize(color: Color) -> Int {
+    public func quantize(color: GIFColor) -> Int {
         let maxChannelColorIndex = colorsPerChannel - 1
         let r = min(maxChannelColorIndex, Int(color.red) / colorStride)
         let g = min(maxChannelColorIndex, Int(color.green) / colorStride)

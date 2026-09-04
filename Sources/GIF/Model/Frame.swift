@@ -1,7 +1,5 @@
-import CairoGraphics
-
 public struct Frame {
-    public let image: CairoImage
+    public let image: GIFImage
     public let imageDescriptor: ImageDescriptor
     public let graphicsControlExtension: GraphicsControlExtension?
     public internal(set) var localQuantization: ColorQuantization?
@@ -11,7 +9,7 @@ public struct Frame {
 
     /// High-level initializer
     public init(
-        image: CairoImage,
+        image: GIFImage,
         delayTime: Int = 0,
         localQuantization: ColorQuantization? = nil,
         disposalMethod: DisposalMethod = .clearCanvas
@@ -41,7 +39,7 @@ public struct Frame {
 
     /// Low-level initializer
     init(
-        image: CairoImage,
+        image: GIFImage,
         imageDescriptor: ImageDescriptor,
         graphicsControlExtension: GraphicsControlExtension?,
         localQuantization: ColorQuantization?

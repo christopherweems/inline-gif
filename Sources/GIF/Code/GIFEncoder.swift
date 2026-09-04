@@ -1,7 +1,5 @@
 import Foundation
 import Logging
-import CairoGraphics
-import Utils
 
 fileprivate let log = Logger(label: "GIF.GIFEncoder")
 
@@ -107,7 +105,7 @@ struct GIFEncoder {
         data.append(string.data(using: .utf8)!)
     }
 
-    private mutating func append(color: Color) {
+    private mutating func append(color: GIFColor) {
         append(byte: color.red)
         append(byte: color.green)
         append(byte: color.blue)
@@ -189,7 +187,7 @@ struct GIFEncoder {
         log.debug("Appended image descriptor")
     }
 
-    private mutating func append(colorTable: [Color], size: UInt8) {
+    private mutating func append(colorTable: [GIFColor], size: UInt8) {
         log.debug("Appending color table...")
 
         let maxColorBytes = colorTableCountOf(size: size) * GIFConstants.colorChannels
@@ -208,8 +206,8 @@ struct GIFEncoder {
         log.debug("Appended color table")
     }
 
-    private func quantize(color: Color, with quantization: ColorQuantization, backgroundColorIndex: UInt8) -> Int {
-        if color.alpha < 128 {
+    private func quantize(color: GIFColor, alpha: UInt8, with quantization: ColorQuantization, backgroundColorIndex: UInt8) -> Int {
+        if alpha < 128 {
             return Int(backgroundColorIndex) // Use transparent color
         } else {
             return quantization.quantize(color: color)
@@ -217,7 +215,7 @@ struct GIFEncoder {
     }
 
     private mutating func appendImageDataAsLZW(
-        image: CairoImage,
+        image: GIFImage,
         quantization: ColorQuantization,
         width: Int,
         height: Int,
@@ -225,7 +223,7 @@ struct GIFEncoder {
     ) {
         log.debug("Appending image data...")
 
-        // Convert the ARGB-encoded image first to color
+        // Convert the RGBA-encoded image first to color
         // indices and then to LZW-compressed codes
         var encoder = LzwEncoder(colorCount: GIFConstants.colorCount)
         var lzwEncoded = BitData()
@@ -233,11 +231,17 @@ struct GIFEncoder {
         log.debug("LZW-encoding the image data...")
         encoder.beginEncoding(into: &lzwEncoded)
 
-        // Iterate all pixels as ARGB values and encode them
-        for y in 0..<height {
-            for x in 0..<width {
-                encoder.encodeAndAppend(index: quantize(color: image[y, x], with: quantization, backgroundColorIndex: backgroundColorIndex), into: &lzwEncoded)
-            }
+        // Iterate all pixels as RGBA values and encode them
+        for index in 0..<(width * height) {
+            encoder.encodeAndAppend(
+                index: quantize(
+                    color: image.color(at: index),
+                    alpha: image.alpha(at: index),
+                    with: quantization,
+                    backgroundColorIndex: backgroundColorIndex
+                ),
+                into: &lzwEncoded
+            )
         }
 
         encoder.finishEncoding(into: &lzwEncoded)

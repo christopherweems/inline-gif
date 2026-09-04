@@ -1,6 +1,5 @@
 import XCTest
 import Logging
-import CairoGraphics
 @testable import GIF
 
 fileprivate let log = Logger(label: "GIFTests.GIFCoderTests")
@@ -27,21 +26,42 @@ final class GIFCoderTests: XCTestCase {
         }
     }
 
-    private func assertImagesEqual(_ image1: CairoImage, _ image2: CairoImage) {
+    func testInMemoryRGBARoundTrip() throws {
+        let image = GIFImage(
+            width: 2,
+            height: 2,
+            rgba: [
+                255, 0, 0, 255,
+                0, 255, 0, 255,
+                0, 0, 255, 255,
+                0, 0, 0, 0,
+            ]
+        )
+        var gif = GIF(quantizingImage: image)
+        gif.frames.append(Frame(image: image))
+
+        let decoded = try GIF(data: gif.encoded())
+
+        XCTAssertEqual(decoded.width, 2)
+        XCTAssertEqual(decoded.height, 2)
+        XCTAssertEqual(decoded.frames.count, 1)
+        XCTAssertEqual(decoded.frames[0].image.width, 2)
+        XCTAssertEqual(decoded.frames[0].image.height, 2)
+    }
+
+    private func assertImagesEqual(_ image1: GIFImage, _ image2: GIFImage) {
         XCTAssertEqual(image1.width, image2.width)
         XCTAssertEqual(image1.height, image2.height)
 
-        for y in 0..<image1.height {
-            for x in 0..<image1.width {
-                let color1 = image1[y, x]
-                let color2 = image2[y, x]
+        for index in 0..<(image1.width * image1.height) {
+            let color1 = image1.color(at: index)
+            let color2 = image2.color(at: index)
 
-                // Only assert equality on fully non-transparent
-                // pixels since these not affected by GIFs (potentially
-                // lossy) encoding of transparent pixels.
-                if color1.alpha == 255 && color2.alpha == 255 {
-                    XCTAssertEqual(color1, color2)
-                }
+            // Only assert equality on fully non-transparent
+            // pixels since these not affected by GIFs (potentially
+            // lossy) encoding of transparent pixels.
+            if image1.alpha(at: index) == 255 && image2.alpha(at: index) == 255 {
+                XCTAssertEqual(color1, color2)
             }
         }
     }

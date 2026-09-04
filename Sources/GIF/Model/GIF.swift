@@ -1,5 +1,3 @@
-import CairoGraphics
-
 /// An in-memory, decoded GIF animation, closely
 /// mirroring the internal structure of a GIF.
 public struct GIF {
@@ -67,7 +65,7 @@ public struct GIF {
         )
     }
 
-    public init(quantizingImage image: CairoImage) {
+    public init(quantizingImage image: GIFImage) {
         self.init(
             width: image.width,
             height: image.height,

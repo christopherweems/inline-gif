@@ -9,13 +9,19 @@ A lightweight LZW encoder and decoder for animated GIFs written in pure Swift, t
 
 ```swift
 // Create a new GIF
-var gif = GIF(width: 300, height: 300)
+let width = 2
+let height = 2
+let rgba: [UInt8] = [
+    255, 0, 0, 255,
+    0, 255, 0, 255,
+    0, 0, 255, 255,
+    0, 0, 0, 0,
+]
+let image = GIFImage(width: width, height: height, rgba: rgba)
+var gif = GIF(quantizingImage: image)
 
-// Add some frames for the animation
-for i in 0..<20 {
-    let image = try CairoImage(pngFilePath: "frame\(i).png")
-    gif.frames.append(.init(image: image, delayTime: 100))
-}
+// Add an in-memory frame to the animation
+gif.frames.append(.init(image: image, delayTime: 100))
 
 // Encode the GIF to a byte buffer
 let data = try gif.encoded()
@@ -28,4 +34,3 @@ GIF encoding is more computationally intensive than decoding. It can become a bo
 ## System Dependencies
 
 * Swift 5.10+
-* Cairo, see [swift-graphics](https://github.com/fwcd/swift-graphics)

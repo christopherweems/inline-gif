@@ -1,7 +1,5 @@
 // Based on https://www.cubic.org/docs/octree.htm
 
-import Utils
-import CairoGraphics
 import Logging
 
 fileprivate let log = Logger(label: "GIF.OctreeQuantization")
@@ -25,7 +23,7 @@ public struct OctreeQuantization: ColorQuantization {
         var refsOrOne: UInt { return (refs == 0) ? 1 : refs }
         var childRefSum: UInt { return childs.compactMap { $0?.refs }.reduce(0, +) }
         var bitShift: Int { return 7 - depth }
-        var color: Color { return Color(red: UInt8(red / refsOrOne), green: UInt8(green / refsOrOne), blue: UInt8(blue / refsOrOne)) }
+        var color: GIFColor { return GIFColor(red: UInt8(red / refsOrOne), green: UInt8(green / refsOrOne), blue: UInt8(blue / refsOrOne)) }
         var isLeaf: Bool { return refs > 0 }
         var leaves: [OctreeNode] { return isLeaf ? [self] : childs.flatMap { $0?.leaves ?? [] } }
         var description: String { return "(r: \(red), g: \(green), b: \(blue))<\(refs)> \(childs)" }
@@ -54,7 +52,7 @@ public struct OctreeQuantization: ColorQuantization {
             }
         }
 
-        private func childIndex(of childColor: Color) -> Int {
+        private func childIndex(of childColor: GIFColor) -> Int {
             ensureBitShiftNotNegative()
             let leftRed = ((childColor.red >> bitShift) & 1) << 2
             let leftGreen = ((childColor.green >> bitShift) & 1) << 1
@@ -62,7 +60,7 @@ public struct OctreeQuantization: ColorQuantization {
             return Int(leftRed | leftGreen | leftBlue)
         }
 
-        func insert(color insertedColor: Color, colorTableIndex: Int? = nil) {
+        func insert(color insertedColor: GIFColor, colorTableIndex: Int? = nil) {
             if depth == maxDepth {
                 red = UInt(insertedColor.red)
                 green = UInt(insertedColor.green)
@@ -78,7 +76,7 @@ public struct OctreeQuantization: ColorQuantization {
             }
         }
 
-        func lookup(color lookupColor: Color) -> Int {
+        func lookup(color lookupColor: GIFColor) -> Int {
             if isLeaf {
                 return colorTableIndex!
             } else {
@@ -116,7 +114,7 @@ public struct OctreeQuantization: ColorQuantization {
             return reduced
         }
 
-        func fill(colorTable: inout [Color]) {
+        func fill(colorTable: inout [GIFColor]) {
             if isLeaf {
                 colorTableIndex = colorTable.count
                 colorTable.append(color)
@@ -154,19 +152,17 @@ public struct OctreeQuantization: ColorQuantization {
     }
 
     private var octree: OctreeNode
-    public private(set) var colorTable: [Color]
+    public private(set) var colorTable: [GIFColor]
 
     /// Creates an octree, inserts the image's colors and reduces
     /// the tree until only `colorCount` colors are left.
-    public init(fromImage image: CairoImage, colorCount: Int = GIFConstants.nonTransparentColorCount) {
+    public init(fromImage image: GIFImage, colorCount: Int = GIFConstants.nonTransparentColorCount) {
         colorTable = []
         octree = OctreeNode(depth: 0)
 
         log.debug("Inserting colors")
-        for y in 0..<image.height {
-            for x in 0..<image.width {
-                octree.insert(color: image[y, x])
-            }
+        for index in 0..<(image.width * image.height) {
+            octree.insert(color: image.color(at: index))
         }
 
         var leafCount = 0
@@ -218,7 +214,7 @@ public struct OctreeQuantization: ColorQuantization {
 
     /// Creates an octree without performing any reductions from the
     /// given color table.
-    public init(fromColors colors: [Color]) {
+    public init(fromColors colors: [GIFColor]) {
         colorTable = colors
         octree = OctreeNode(depth: 0)
 
@@ -228,7 +224,7 @@ public struct OctreeQuantization: ColorQuantization {
         }
     }
 
-    public func quantize(color: Color) -> Int {
+    public func quantize(color: GIFColor) -> Int {
         return octree.lookup(color: color)
     }
 }

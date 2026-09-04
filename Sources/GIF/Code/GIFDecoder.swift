@@ -1,7 +1,5 @@
 import Foundation
 import Logging
-import CairoGraphics
-import Utils
 
 fileprivate let log = Logger(label: "GIF.GIFDecoder")
 
@@ -85,11 +83,11 @@ struct GIFDecoder {
         return (UInt16(higher) << 8) | UInt16(lower)
     }
 
-    private mutating func readColor() throws -> Color {
+    private mutating func readColor() throws -> GIFColor {
         let red = try readByte()
         let green = try readByte()
         let blue = try readByte()
-        return Color(red: red, green: green, blue: blue)
+        return GIFColor(red: red, green: green, blue: blue)
     }
 
     private mutating func readString(maxLength: Int = Int.max) throws -> String {
@@ -182,7 +180,7 @@ struct GIFDecoder {
     private mutating func readColorTable(size: UInt8) throws -> ColorQuantization {
         log.trace("Reading color table...")
 
-        var colorTable = [Color]()
+        var colorTable = [GIFColor]()
 
         for _ in 0..<colorTableCountOf(size: size) {
             try colorTable.append(readColor())
@@ -261,7 +259,7 @@ struct GIFDecoder {
         height: Int,
         sizeOfColorTable: UInt8,
         backgroundColorIndex: UInt8
-    ) throws -> CairoImage {
+    ) throws -> GIFImage {
         log.debug("Reading image data...")
 
         // Read beginning of image block
@@ -279,25 +277,28 @@ struct GIFDecoder {
         try decoder.beginDecoding(from: &lzwEncoded)
         while try decoder.decodeAndAppend(from: &lzwEncoded, into: &decoded) {}
 
-        // Decode the color indices to actual (A)RGB colors and write them into an image
+        // Decode the color indices to RGBA pixels.
         let colorTable = quantization.colorTable
-        let image = try CairoImage(width: width, height: height)
+        var rgba = [UInt8]()
+        rgba.reserveCapacity(width * height * 4)
 
         assert(decoded.count >= width * height)
         log.debug("Decoded image data \(decoded.prefix(10).map(UInt8.init).hexString)...")
 
-        for y in 0..<height {
-            for x in 0..<width {
-                let colorIndex = decoded[(y * width) + x]
-                let isTransparent = colorIndex == backgroundColorIndex
-                assert(isTransparent || colorIndex < colorTable.count, "Color index #\(colorIndex) is too large for color table of size \(colorTable.count) (note: background color index is #\(backgroundColorIndex))")
-                image[y, x] = isTransparent ? .transparent : colorTable[colorIndex]
-            }
+        for index in 0..<(width * height) {
+            let colorIndex = decoded[index]
+            let isTransparent = colorIndex == backgroundColorIndex
+            assert(isTransparent || colorIndex < colorTable.count, "Color index #\(colorIndex) is too large for color table of size \(colorTable.count) (note: background color index is #\(backgroundColorIndex))")
+            let color = isTransparent ? GIFColor(red: 0, green: 0, blue: 0) : colorTable[colorIndex]
+            rgba.append(color.red)
+            rgba.append(color.green)
+            rgba.append(color.blue)
+            rgba.append(isTransparent ? 0 : 255)
         }
 
         log.debug("Read image data (\(lzwData.count) bytes LZW-encoded, \(width * height) pixels)")
 
-        return image
+        return GIFImage(width: width, height: height, rgba: rgba)
     }
 
     private mutating func readFrame(
@@ -320,7 +321,9 @@ struct GIFDecoder {
 
         log.trace("Reading frame...")
 
-        let actualBackgroundColorIndex = (graphicsControlExtension?.backgroundColorIndex).filter { _ in imageDescriptor.useLocalColorTable } ?? backgroundColorIndex
+        let actualBackgroundColorIndex = imageDescriptor.useLocalColorTable
+            ? graphicsControlExtension?.backgroundColorIndex ?? backgroundColorIndex
+            : backgroundColorIndex
         let sizeOfColorTable = imageDescriptor.useLocalColorTable ? imageDescriptor.sizeOfLocalColorTable : sizeOfGlobalColorTable
         var localQuantization: ColorQuantization?
 
@@ -369,7 +372,7 @@ struct GIFDecoder {
 
     private mutating func readTrailer() throws {
         let trailer = try peekByte()
-        guard trailer == GIFConstants.trailer else { throw GIFDecodingError.invalidTrailer("Remaining bytes: \(data.truncated(to: 4).hexString)...") }
+        guard trailer == GIFConstants.trailer else { throw GIFDecodingError.invalidTrailer("Remaining bytes: \(data.prefix(4).hexString)...") }
         try skipByte()
     }
 }
