@@ -1,5 +1,5 @@
 import Logging
-import GIF
+import InlineGIF
 
 // See https://github.com/apple/swift-log/issues/77
 //

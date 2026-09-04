@@ -1,6 +1,6 @@
 import XCTest
 import Logging
-@testable import GIF
+@testable import InlineGIF
 
 fileprivate let log = Logger(label: "GIFTests.GIFCoderTests")
 
